@@ -1,89 +1,115 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useEffect } from 'react';
-import { useAuthStore } from './store/authStore';
-import { Layout } from './components/Layout';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
-import { ProtectedRoute } from './components/ProtectedRoute';
-
-// Import pages
-import { ServantDashboard } from './pages/ServantDashboard';
-import { KitchenDisplay } from './pages/KitchenDisplay';
-import { CashierDashboard } from './pages/CashierDashboard';
-import { InvoicePage } from './pages/InvoicePage';
-import { AdminDashboard } from './pages/AdminDashboard';
+import { AdminLayout } from './components/admin/AdminLayout';
+import { AdminDashboard } from './pages/admin/AdminDashboard';
+import { TenantsPage } from './pages/admin/TenantsPage';
+import { PlaceholderPage } from './pages/admin/PlaceholderPage';
+import { HotelAdminLayout } from './components/hotel/HotelAdminLayout';
+import { HotelDashboard } from './pages/hotel/HotelDashboard';
+import { BillingPage } from './pages/hotel/BillingPage';
+import { LiveOrdersPage } from './pages/hotel/LiveOrdersPage';
+import { OrderHistoryPage } from './pages/hotel/OrderHistoryPage';
+import { MenuManagementPage } from './pages/hotel/MenuManagementPage';
+import { StaffManagementPage } from './pages/hotel/StaffManagementPage';
+import { SettingsPage } from './pages/hotel/SettingsPage';
+import { WKLayout } from './components/wk/WKLayout';
+import { TakeOrderPage } from './pages/wk/TakeOrderPage';
+import { KitchenPage } from './pages/wk/KitchenPage';
+import { WKBillingPage } from './pages/wk/WKBillingPage';
+import { WKOrderHistoryPage } from './pages/wk/WKOrderHistoryPage';
 
 function App() {
-  const { loadUser, isAuthenticated } = useAuthStore();
-
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]);
-
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="/invoice/:qrToken" element={<InvoicePage />} />
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          {/* Public Routes */}
+          <Route path="/" element={<LoginPage />} />
+          <Route path="/login" element={<LoginPage />} />
 
-        {/* Protected Routes */}
-        <Route
-          path="/servant/*"
-          element={
-            <ProtectedRoute roles={['SERVANT', 'ADMIN']}>
-              <Layout>
-                <ServantDashboard />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+          {/* Admin Routes */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<AdminDashboard />} />
+            <Route path="tenants" element={<TenantsPage />} />
+            <Route
+              path="subscriptions"
+              element={
+                <PlaceholderPage
+                  title="Subscriptions Management"
+                  description="Manage subscription plans, renewals, and billing"
+                  icon="💳"
+                />
+              }
+            />
+            <Route
+              path="users"
+              element={
+                <PlaceholderPage
+                  title="Tenant Users"
+                  description="Manage users across all tenants"
+                  icon="👥"
+                />
+              }
+            />
+            <Route
+              path="features"
+              element={
+                <PlaceholderPage
+                  title="Feature Flags"
+                  description="Control feature access for each tenant"
+                  icon="⚙️"
+                />
+              }
+            />
+            <Route
+              path="monitoring"
+              element={
+                <PlaceholderPage
+                  title="System Monitoring"
+                  description="Monitor system health, API usage, and performance"
+                  icon="📈"
+                />
+              }
+            />
+          </Route>
 
-        <Route
-          path="/kitchen"
-          element={
-            <ProtectedRoute roles={['KITCHEN', 'ADMIN']}>
-              <Layout>
-                <KitchenDisplay />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
+          {/* Hotel Admin Routes - Protected for 'admin' role only */}
+          <Route
+            path="/hotel"
+            element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <HotelAdminLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route index element={<HotelDashboard />} />
+            <Route path="billing" element={<BillingPage />} />
+            <Route path="live-orders" element={<LiveOrdersPage />} />
+            <Route path="order-history" element={<OrderHistoryPage />} />
+            <Route path="menu" element={<MenuManagementPage />} />
+            <Route path="staff" element={<StaffManagementPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
 
-        <Route
-          path="/cashier"
-          element={
-            <ProtectedRoute roles={['CASHIER', 'ADMIN']}>
-              <Layout>
-                <CashierDashboard />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin/*"
-          element={
-            <ProtectedRoute roles={['ADMIN']}>
-              <Layout>
-                <AdminDashboard />
-              </Layout>
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/servant" replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
-
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
+          {/* Waiter & Kitchen Routes - Protected for 'waiter' and 'kitchen' roles */}
+          <Route
+            path="/wk"
+            element={
+              <ProtectedRoute allowedRoles={['waiter', 'kitchen']}>
+                <WKLayout />
+              </ProtectedRoute>
+            }
+          >
+            <Route path="take-order" element={<TakeOrderPage />} />
+            <Route path="kitchen" element={<KitchenPage />} />
+            <Route path="billing" element={<WKBillingPage />} />
+            <Route path="order-history" element={<WKOrderHistoryPage />} />
+          </Route>
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   );
 }
 

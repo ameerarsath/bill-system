@@ -1,14 +1,13 @@
 import { create } from 'zustand';
-import type { User, AuthResponse } from '../types/index';
-import { authApi } from '../api/auth';
+import { authApi } from '../api/authApi';
+import type { BackendUser, Role } from '../types/backend.types';
 
 interface AuthState {
-  user: User | null;
+  user: BackendUser | null;
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   loadUser: () => Promise<void>;
@@ -17,25 +16,30 @@ interface AuthState {
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  token: localStorage.getItem('token'),
-  isAuthenticated: !!localStorage.getItem('token'),
+  token: localStorage.getItem('jwt_token'),
+  isAuthenticated: !!localStorage.getItem('jwt_token'),
   isLoading: false,
   error: null,
 
   login: async (username: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response: AuthResponse = await authApi.login({ username, password });
+      const response = await authApi.login({ username, password });
 
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify({
-        id: response.userId,
-        username: response.username,
-        fullName: response.fullName,
-        role: response.role,
-      }));
+      // Store JWT token
+      localStorage.setItem('jwt_token', response.token);
 
+      // Get user details
       const user = await authApi.getCurrentUser();
+
+      // Store user in localStorage for persistence
+      localStorage.setItem('hotel_user', JSON.stringify({
+        id: user.id.toString(),
+        username: user.username,
+        name: user.fullName,
+        role: mapBackendRoleToFrontend(user.role),
+        email: user.phone || '',
+      }));
 
       set({
         user,
@@ -54,7 +58,8 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: () => {
-    authApi.logout();
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('hotel_user');
     set({
       user: null,
       token: null,
@@ -64,7 +69,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   loadUser: async () => {
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('jwt_token');
     if (!token) {
       set({ isAuthenticated: false });
       return;
@@ -78,10 +83,12 @@ export const useAuthStore = create<AuthState>((set) => ({
         token,
         isAuthenticated: true,
         isLoading: false,
+        error: null,
       });
     } catch (error) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      // Token invalid or expired
+      localStorage.removeItem('jwt_token');
+      localStorage.removeItem('hotel_user');
       set({
         user: null,
         token: null,
@@ -93,3 +100,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+// Map backend roles to frontend roles
+function mapBackendRoleToFrontend(backendRole: Role): 'admin' | 'waiter' | 'kitchen' | 'cashier' {
+  const roleMap: Record<Role, 'admin' | 'waiter' | 'kitchen' | 'cashier'> = {
+    'ADMIN': 'admin',
+    'SERVANT': 'waiter',
+    'KITCHEN': 'kitchen',
+    'CASHIER': 'cashier',
+  };
+  return roleMap[backendRole] || 'waiter';
+}
