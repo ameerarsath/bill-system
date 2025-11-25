@@ -8,7 +8,9 @@
       "Bash(./mvnw spring-boot:run:*)",
       "Bash(npm run dev:*)",
       "Bash(git init:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(timeout 15 sh:*)",
+      "Bash(npm install)"
     ],
     "deny": [],
     "ask": []

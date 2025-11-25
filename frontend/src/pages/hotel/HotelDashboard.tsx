@@ -1,11 +1,105 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp } from 'lucide-react';
-import { mockDashboardData } from '../../data/mockHotelData';
+import { TrendingUp, Loader2 } from 'lucide-react';
+import { ordersApi } from '../../api/ordersApi';
+import { billsApi } from '../../api/billsApi';
 import { formatCurrency } from '../../utils/hotelHelpers';
 
+interface DashboardData {
+  todayRevenue: number;
+  totalOrders: number;
+  totalBills: number;
+  activeOrders: number;
+}
+
 export const HotelDashboard = () => {
-  const data = mockDashboardData;
-  const maxRevenue = Math.max(...data.salesChart.map((d) => d.revenue));
+  // Data state
+  const [data, setData] = useState<DashboardData>({
+    todayRevenue: 0,
+    totalOrders: 0,
+    totalBills: 0,
+    activeOrders: 0,
+  });
+
+  // Loading & error states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch dashboard data
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [orders, bills] = await Promise.all([
+        ordersApi.getAllOrders(),
+        billsApi.getAllBills()
+      ]);
+
+      // Calculate today's revenue (from paid bills today)
+      const today = new Date().toDateString();
+      const todayRevenue = bills
+        .filter(bill => {
+          const billDate = new Date(bill.createdAt || '').toDateString();
+          return billDate === today && bill.paymentStatus === 'PAID';
+        })
+        .reduce((sum, bill) => sum + bill.totalAmount, 0);
+
+      // Calculate active orders (orders with items not all READY)
+      const activeOrders = orders.filter(order => {
+        const items = order.items || [];
+        return items.length > 0 && !items.every(item => item.status === 'READY');
+      }).length;
+
+      setData({
+        todayRevenue,
+        totalOrders: orders.length,
+        totalBills: bills.length,
+        activeOrders,
+      });
+    } catch (err) {
+      console.error('Failed to fetch dashboard data:', err);
+      setError('Failed to load dashboard statistics.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-primary-500 mx-auto mb-4" />
+          <p className="text-slate-600 font-medium">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="space-y-6 food-page-enter">
+        <div className="max-w-2xl mx-auto mt-12">
+          <div className="p-6 bg-red-50 border border-red-200 rounded-xl">
+            <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Dashboard</h3>
+            <p className="text-red-700 mb-4">{error}</p>
+            <button
+              onClick={() => fetchDashboardData()}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 food-page-enter">
@@ -33,12 +127,9 @@ export const HotelDashboard = () => {
               <h3 className="text-2xl md:text-3xl font-bold text-slate-800">
                 {formatCurrency(data.todayRevenue)}
               </h3>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="w-3.5 h-3.5 text-success-600" />
-                <p className="text-xs text-success-600 font-semibold">
-                  +12.5% from yesterday
-                </p>
-              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                Today's total revenue
+              </p>
             </div>
             <div className="food-icon-circle food-icon-circle-primary">
               💰
@@ -60,12 +151,9 @@ export const HotelDashboard = () => {
               <h3 className="text-2xl md:text-3xl font-bold text-slate-800">
                 {data.totalOrders}
               </h3>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="w-3.5 h-3.5 text-success-600" />
-                <p className="text-xs text-success-600 font-semibold">
-                  +8.2% from yesterday
-                </p>
-              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                All time orders
+              </p>
             </div>
             <div className="food-icon-circle food-icon-circle-success">
               🛍️
@@ -87,12 +175,9 @@ export const HotelDashboard = () => {
               <h3 className="text-2xl md:text-3xl font-bold text-slate-800">
                 {data.totalBills}
               </h3>
-              <div className="flex items-center gap-1 mt-2">
-                <TrendingUp className="w-3.5 h-3.5 text-success-600" />
-                <p className="text-xs text-success-600 font-semibold">
-                  +5.4% from yesterday
-                </p>
-              </div>
+              <p className="text-xs text-slate-400 mt-2">
+                All time bills
+              </p>
             </div>
             <div className="food-icon-circle food-icon-circle-warning">
               📦
@@ -127,99 +212,23 @@ export const HotelDashboard = () => {
         </motion.div>
       </div>
 
-      {/* Charts Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Weekly Sales */}
-        <motion.div
-          className="food-card p-6"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Weekly Sales</h3>
-              <p className="text-sm text-slate-500 mt-0.5">Revenue breakdown by day</p>
-            </div>
-            <div className="food-icon-circle food-icon-circle-primary text-lg">
-              📊
-            </div>
+      {/* Info Section */}
+      <motion.div
+        className="food-card p-6"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5 }}
+      >
+        <div className="text-center py-8">
+          <div className="food-icon-circle food-icon-circle-primary text-3xl mx-auto mb-4">
+            📊
           </div>
-          <div className="space-y-4">
-            {data.salesChart.map((item, index) => (
-              <motion.div
-                key={item.day}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.6 + index * 0.05 }}
-              >
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm font-semibold text-slate-700">
-                    {item.day}
-                  </span>
-                  <span className="text-sm font-bold text-slate-800">
-                    {formatCurrency(item.revenue)}
-                  </span>
-                </div>
-                <div className="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-                  <motion.div
-                    className="bg-gradient-to-r from-primary-500 to-primary-600 h-2.5 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${(item.revenue / maxRevenue) * 100}%` }}
-                    transition={{ delay: 0.7 + index * 0.05, duration: 0.6 }}
-                  />
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-
-        {/* Top Items */}
-        <motion.div
-          className="food-card p-6"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.6 }}
-        >
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h3 className="text-lg font-bold text-slate-800">Top Selling Items</h3>
-              <p className="text-sm text-slate-500 mt-0.5">Best performers this week</p>
-            </div>
-            <div className="food-icon-circle food-icon-circle-primary text-lg">
-              🏆
-            </div>
-          </div>
-          <div className="space-y-3">
-            {data.topItems.map((item, index) => (
-              <motion.div
-                key={item.name}
-                className="food-card-soft p-4 hover:shadow-md transition-all cursor-pointer"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.7 + index * 0.1 }}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary-400 to-primary-600 text-white flex items-center justify-center font-bold text-sm shadow-lg shadow-primary-500/25">
-                      #{index + 1}
-                    </div>
-                    <div>
-                      <p className="font-semibold text-slate-800">{item.name}</p>
-                      <p className="text-xs text-slate-500">{item.orders} orders</p>
-                    </div>
-                  </div>
-                  <p className="font-bold text-slate-800">
-                    {formatCurrency(item.revenue)}
-                  </p>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </motion.div>
-      </div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2">Dashboard Overview</h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto">
+            Your hotel's key performance metrics are displayed above. Use the navigation menu to access detailed reports and management features.
+          </p>
+        </div>
+      </motion.div>
     </div>
   );
 };

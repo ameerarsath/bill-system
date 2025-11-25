@@ -1,43 +1,132 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { mockOrders } from '../../data/mockHotelData';
+import { Loader2 } from 'lucide-react';
+import { ordersApi } from '../../api/ordersApi';
+import type { Order as BackendOrder } from '../../types/backend.types';
 import { getStatusBadgeClass } from '../../utils/hotelHelpers';
 
 export const LiveOrdersPage = () => {
-  const pendingOrders = mockOrders.filter((o) => o.status === 'pending');
-  const cookingOrders = mockOrders.filter((o) => o.status === 'cooking');
-  const readyOrders = mockOrders.filter((o) => o.status === 'ready');
+  // Data state
+  const [orders, setOrders] = useState<BackendOrder[]>([]);
 
-  const OrderCard = ({ order }: { order: typeof mockOrders[0] }) => (
-    <motion.div
-      className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all"
-      initial={{ opacity: 0, scale: 0.95 }}
-      animate={{ opacity: 1, scale: 1 }}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <div>
-          <p className="font-bold text-gray-900">{order.id}</p>
-          <p className="text-sm text-gray-600">
-            {order.tableNo} • {order.waiter}
-          </p>
-        </div>
-        <span className="text-xs text-gray-500">{order.time}</span>
-      </div>
-      <div className="space-y-1 mb-3">
-        {order.items.map((item, idx) => (
-          <p key={idx} className="text-sm text-gray-700">
-            • {item}
-          </p>
-        ))}
-      </div>
-      <span
-        className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(
-          order.status
-        )}`}
+  // Loading & error states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [updating, setUpdating] = useState(false);
+
+  // Fetch orders on mount and auto-refresh
+  useEffect(() => {
+    fetchOrders();
+
+    // Auto-refresh every 10 seconds for real-time updates
+    const interval = setInterval(fetchOrders, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchOrders = async () => {
+    try {
+      if (!loading) setUpdating(true);
+      setError(null);
+
+      const data = await ordersApi.getAllOrders();
+      setOrders(data);
+    } catch (err) {
+      console.error('Failed to fetch orders:', err);
+      setError('Failed to load orders. Please refresh the page.');
+    } finally {
+      setLoading(false);
+      setUpdating(false);
+    }
+  };
+
+  // Helper: Determine order status from items
+  const getOrderStatus = (order: BackendOrder): 'PENDING' | 'COOKING' | 'READY' | 'SERVED' => {
+    const items = order.items || [];
+    if (items.length === 0) return 'PENDING';
+
+    const allReady = items.every(item => item.status === 'READY');
+    const someCooking = items.some(item => item.status === 'COOKING');
+
+    if (allReady) return 'READY';
+    if (someCooking) return 'COOKING';
+    return 'PENDING';
+  };
+
+  // Filter orders by status
+  const pendingOrders = orders.filter((o) => getOrderStatus(o) === 'PENDING');
+  const cookingOrders = orders.filter((o) => getOrderStatus(o) === 'COOKING');
+  const readyOrders = orders.filter((o) => getOrderStatus(o) === 'READY');
+
+  const OrderCard = ({ order }: { order: BackendOrder }) => {
+    const orderStatus = getOrderStatus(order);
+    const statusClass = getStatusBadgeClass(orderStatus.toLowerCase());
+
+    return (
+      <motion.div
+        className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:shadow-md transition-all"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
       >
-        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
-      </span>
-    </motion.div>
-  );
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <p className="font-bold text-gray-900">Order #{order.orderNumber}</p>
+            <p className="text-sm text-gray-600">
+              Table {order.table?.tableNumber || 'N/A'} • {order.waiterName || 'N/A'}
+            </p>
+          </div>
+          <span className="text-xs text-gray-500">
+            {new Date(order.createdAt).toLocaleTimeString('en-IN', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: true,
+            })}
+          </span>
+        </div>
+        <div className="space-y-1 mb-3">
+          {order.items.map((item) => (
+            <p key={item.id} className="text-sm text-gray-700">
+              • {item.menuItemName} x{item.quantity}
+            </p>
+          ))}
+        </div>
+        <span
+          className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${statusClass}`}
+        >
+          {orderStatus}
+        </span>
+      </motion.div>
+    );
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-orange-500 mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading live orders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto mt-12">
+        <div className="p-6 bg-red-50 border border-red-200 rounded-xl">
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Orders</h3>
+          <p className="text-red-700 mb-4">{error}</p>
+          <button
+            onClick={() => fetchOrders()}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 fade-in">

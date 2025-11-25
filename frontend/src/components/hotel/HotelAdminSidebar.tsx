@@ -7,6 +7,8 @@ import {
   UtensilsCrossed,
   Users,
   Settings,
+  Table,
+  Tag,
 } from 'lucide-react';
 
 interface NavItem {
@@ -46,6 +48,18 @@ const navItems: NavItem[] = [
     icon: <UtensilsCrossed className="w-5 h-5" />,
     label: 'Menu Management',
     path: '/hotel/menu',
+  },
+  {
+    id: 'tables',
+    icon: <Table className="w-5 h-5" />,
+    label: 'Table Management',
+    path: '/hotel/tables',
+  },
+  {
+    id: 'categories',
+    icon: <Tag className="w-5 h-5" />,
+    label: 'Category Management',
+    path: '/hotel/categories',
   },
   {
     id: 'staff',

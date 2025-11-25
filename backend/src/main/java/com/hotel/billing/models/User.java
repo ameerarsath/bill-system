@@ -36,12 +36,21 @@ public class User {
     @Column(length = 20)
     private String phone;
 
+    @Column(unique = true, length = 100)
+    private String email;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     private Role role;
 
     @Column(nullable = false)
     private Boolean active = true;
+
+    @Column(name = "password_reset_token", length = 100)
+    private String passwordResetToken;
+
+    @Column(name = "password_reset_token_expiry")
+    private LocalDateTime passwordResetTokenExpiry;
 
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)

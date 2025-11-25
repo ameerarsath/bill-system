@@ -1,16 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, Edit, Trash2, X, CheckCircle, AlertCircle } from 'lucide-react';
-import { mockMenu } from '../../data/mockHotelData';
-import type { MenuItem } from '../../data/mockHotelData';
+import { Plus, Edit, Trash2, X, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { menuApi } from '../../api/menuApi';
+import type { MenuItem as BackendMenuItem } from '../../types/backend.types';
 import { formatCurrency } from '../../utils/hotelHelpers';
 
 interface MenuFormData {
   name: string;
-  category: string;
+  categoryId: number;
   price: string;
-  image: string;
+  description: string;
+  isVeg: boolean;
   available: boolean;
+  imageUrl: string;
 }
 
 // Common emoji options for food items
@@ -29,6 +31,8 @@ const MenuFormModal = ({
   title,
   formData,
   setFormData,
+  categories,
+  saving,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -36,6 +40,8 @@ const MenuFormModal = ({
   title: string;
   formData: MenuFormData;
   setFormData: (data: MenuFormData) => void;
+  categories: { id: number; name: string }[];
+  saving: boolean;
 }) => {
   if (!isOpen) return null;
 
@@ -85,22 +91,35 @@ const MenuFormModal = ({
               Category *
             </label>
             <select
-              value={formData.category}
+              value={formData.categoryId}
               onChange={(e) =>
-                setFormData({ ...formData, category: e.target.value })
+                setFormData({ ...formData, categoryId: Number(e.target.value) })
               }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none"
             >
-              <option value="">Select Category</option>
-              <option value="Starters">Starters</option>
-              <option value="Main Course">Main Course</option>
-              <option value="Breads">Breads</option>
-              <option value="Rice">Rice</option>
-              <option value="South Indian">South Indian</option>
-              <option value="Chinese">Chinese</option>
-              <option value="Beverages">Beverages</option>
-              <option value="Desserts">Desserts</option>
+              <option value={0}>Select Category</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
             </select>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description
+            </label>
+            <textarea
+              value={formData.description}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
+              placeholder="e.g., Creamy tomato-based curry with butter"
+              rows={2}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none resize-none"
+            />
           </div>
 
           {/* Price */}
@@ -131,9 +150,9 @@ const MenuFormModal = ({
                 <button
                   key={emoji}
                   type="button"
-                  onClick={() => setFormData({ ...formData, image: emoji })}
+                  onClick={() => setFormData({ ...formData, imageUrl: emoji })}
                   className={`text-2xl p-2 rounded-lg hover:bg-gray-100 transition-colors ${
-                    formData.image === emoji
+                    formData.imageUrl === emoji
                       ? 'bg-orange-100 ring-2 ring-orange-500'
                       : ''
                   }`}
@@ -143,12 +162,25 @@ const MenuFormModal = ({
               ))}
             </div>
             <p className="text-sm text-gray-500 mt-2">
-              Selected: <span className="text-2xl">{formData.image}</span>
+              Selected: <span className="text-2xl">{formData.imageUrl}</span>
             </p>
           </div>
 
-          {/* Availability */}
-          <div>
+          {/* Veg/Non-Veg and Availability */}
+          <div className="flex gap-6">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={formData.isVeg}
+                onChange={(e) =>
+                  setFormData({ ...formData, isVeg: e.target.checked })
+                }
+                className="w-4 h-4 text-green-500 border-gray-300 rounded focus:ring-green-500"
+              />
+              <span className="text-sm font-medium text-gray-700">
+                Vegetarian
+              </span>
+            </label>
             <label className="flex items-center gap-2 cursor-pointer">
               <input
                 type="checkbox"
@@ -179,9 +211,14 @@ const MenuFormModal = ({
               e.preventDefault();
               onSubmit();
             }}
-            className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors"
+            disabled={saving}
+            className="flex-1 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
           >
-            {title === 'Add New Item' ? 'Add Item' : 'Save Changes'}
+            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+            {saving
+              ? 'Saving...'
+              : (title === 'Add New Item' ? 'Add Item' : 'Save Changes')
+            }
           </button>
         </div>
       </motion.div>
@@ -190,23 +227,59 @@ const MenuFormModal = ({
 };
 
 export const MenuManagementPage = () => {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(mockMenu);
+  // Data state
+  const [menuItems, setMenuItems] = useState<BackendMenuItem[]>([]);
+  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+
+  // UI state
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<BackendMenuItem | null>(null);
   const [formData, setFormData] = useState<MenuFormData>({
     name: '',
-    category: '',
+    categoryId: 0,
     price: '',
-    image: '🍽️',
+    description: '',
+    isVeg: true,
     available: true,
+    imageUrl: '🍽️',
   });
   const [notification, setNotification] = useState<{
     show: boolean;
     message: string;
     type: 'success' | 'error';
   }>({ show: false, message: '', type: 'success' });
+
+  // Loading & error states
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  // Fetch menu data on mount
+  useEffect(() => {
+    fetchMenuData();
+  }, []);
+
+  const fetchMenuData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const [items, cats] = await Promise.all([
+        menuApi.getAllMenuItems(),
+        menuApi.getAllCategories()
+      ]);
+
+      setMenuItems(items);
+      setCategories(cats);
+    } catch (err) {
+      console.error('Failed to fetch menu data:', err);
+      setError('Failed to load menu data. Please refresh the page.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Show notification
   const showNotification = (message: string, type: 'success' | 'error') => {
@@ -220,10 +293,12 @@ export const MenuManagementPage = () => {
   const resetForm = () => {
     setFormData({
       name: '',
-      category: '',
+      categoryId: 0,
       price: '',
-      image: '🍽️',
+      description: '',
+      isVeg: true,
       available: true,
+      imageUrl: '🍽️',
     });
   };
 
@@ -234,43 +309,53 @@ export const MenuManagementPage = () => {
   };
 
   // Handle edit item
-  const handleEditClick = (item: MenuItem) => {
+  const handleEditClick = (item: BackendMenuItem) => {
     setSelectedItem(item);
     setFormData({
       name: item.name,
-      category: item.category,
+      categoryId: item.categoryId,
       price: item.price.toString(),
-      image: item.image,
+      description: item.description || '',
+      isVeg: item.isVeg,
       available: item.available,
+      imageUrl: item.imageUrl || '🍽️',
     });
     setShowEditModal(true);
   };
 
   // Handle delete item
-  const handleDeleteClick = (item: MenuItem) => {
+  const handleDeleteClick = (item: BackendMenuItem) => {
     setSelectedItem(item);
     setShowDeleteModal(true);
   };
 
   // Toggle availability
-  const handleToggleAvailability = (item: MenuItem) => {
-    setMenuItems(
-      menuItems.map((menuItem) =>
-        menuItem.id === item.id
-          ? { ...menuItem, available: !menuItem.available }
-          : menuItem
-      )
-    );
-    showNotification(
-      `${item.name} marked as ${item.available ? 'unavailable' : 'available'}`,
-      'success'
-    );
+  const handleToggleAvailability = async (item: BackendMenuItem) => {
+    try {
+      const updatedItem = await menuApi.updateMenuItem(item.id, {
+        ...item,
+        available: !item.available
+      });
+
+      setMenuItems(
+        menuItems.map((menuItem) =>
+          menuItem.id === item.id ? updatedItem : menuItem
+        )
+      );
+      showNotification(
+        `${item.name} marked as ${item.available ? 'unavailable' : 'available'}`,
+        'success'
+      );
+    } catch (err) {
+      console.error('Failed to toggle availability:', err);
+      showNotification('Failed to update item availability', 'error');
+    }
   };
 
   // Add new menu item
-  const handleAddSubmit = () => {
+  const handleAddSubmit = async () => {
     // Validate required fields
-    if (!formData.name || !formData.category || !formData.price) {
+    if (!formData.name || !formData.categoryId || !formData.price) {
       showNotification('Please fill all required fields', 'error');
       return;
     }
@@ -288,25 +373,34 @@ export const MenuManagementPage = () => {
       return;
     }
 
-    const newItem: MenuItem = {
-      id: `M${String(menuItems.length + 1).padStart(3, '0')}`,
-      name: formData.name.trim(),
-      category: formData.category,
-      price: price,
-      image: formData.image,
-      available: formData.available,
-    };
+    try {
+      setSaving(true);
+      const newItem = await menuApi.createMenuItem({
+        name: formData.name.trim(),
+        categoryId: formData.categoryId,
+        price: price,
+        description: formData.description,
+        isVeg: formData.isVeg,
+        available: formData.available,
+        imageUrl: formData.imageUrl,
+      });
 
-    setMenuItems([...menuItems, newItem]);
-    showNotification(`${formData.name} added successfully`, 'success');
-    setShowAddModal(false);
-    resetForm();
+      setMenuItems([...menuItems, newItem]);
+      showNotification(`${formData.name} added successfully`, 'success');
+      setShowAddModal(false);
+      resetForm();
+    } catch (err) {
+      console.error('Failed to add menu item:', err);
+      showNotification('Failed to add menu item. Please try again.', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Update existing menu item
-  const handleEditSubmit = () => {
+  const handleEditSubmit = async () => {
     // Validate required fields
-    if (!formData.name || !formData.category || !formData.price) {
+    if (!formData.name || !formData.categoryId || !formData.price) {
       showNotification('Please fill all required fields', 'error');
       return;
     }
@@ -325,36 +419,85 @@ export const MenuManagementPage = () => {
     }
 
     if (selectedItem) {
-      setMenuItems(
-        menuItems.map((item) =>
-          item.id === selectedItem.id
-            ? {
-                ...item,
-                name: formData.name.trim(),
-                category: formData.category,
-                price: price,
-                image: formData.image,
-                available: formData.available,
-              }
-            : item
-        )
-      );
-      showNotification(`${formData.name} updated successfully`, 'success');
-      setShowEditModal(false);
-      setSelectedItem(null);
-      resetForm();
+      try {
+        setSaving(true);
+        const updatedItem = await menuApi.updateMenuItem(selectedItem.id, {
+          name: formData.name.trim(),
+          categoryId: formData.categoryId,
+          price: price,
+          description: formData.description,
+          isVeg: formData.isVeg,
+          available: formData.available,
+          imageUrl: formData.imageUrl,
+        });
+
+        setMenuItems(
+          menuItems.map((item) =>
+            item.id === selectedItem.id ? updatedItem : item
+          )
+        );
+        showNotification(`${formData.name} updated successfully`, 'success');
+        setShowEditModal(false);
+        setSelectedItem(null);
+        resetForm();
+      } catch (err) {
+        console.error('Failed to update menu item:', err);
+        showNotification('Failed to update menu item. Please try again.', 'error');
+      } finally {
+        setSaving(false);
+      }
     }
   };
 
   // Delete menu item
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (selectedItem) {
-      setMenuItems(menuItems.filter((item) => item.id !== selectedItem.id));
-      showNotification(`${selectedItem.name} deleted successfully`, 'success');
-      setShowDeleteModal(false);
-      setSelectedItem(null);
+      try {
+        setSaving(true);
+        await menuApi.deleteMenuItem(selectedItem.id);
+
+        setMenuItems(menuItems.filter((item) => item.id !== selectedItem.id));
+        showNotification(`${selectedItem.name} deleted successfully`, 'success');
+        setShowDeleteModal(false);
+        setSelectedItem(null);
+      } catch (err) {
+        console.error('Failed to delete menu item:', err);
+        showNotification('Failed to delete menu item. Please try again.', 'error');
+      } finally {
+        setSaving(false);
+      }
     }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 animate-spin text-orange-500 mx-auto mb-4" />
+          <p className="text-gray-600 font-medium">Loading menu...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="max-w-2xl mx-auto mt-12">
+        <div className="p-6 bg-red-50 border border-red-200 rounded-xl">
+          <h3 className="text-lg font-semibold text-red-800 mb-2">Error Loading Menu</h3>
+          <p className="text-red-700 mb-4">{error}</p>
+          <button
+            onClick={() => fetchMenuData()}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 fade-in">
@@ -391,6 +534,8 @@ export const MenuManagementPage = () => {
             title="Add New Item"
             formData={formData}
             setFormData={setFormData}
+            categories={categories}
+            saving={saving}
           />
         )}
         {showEditModal && (
@@ -405,6 +550,8 @@ export const MenuManagementPage = () => {
             title="Edit Menu Item"
             formData={formData}
             setFormData={setFormData}
+            categories={categories}
+            saving={saving}
           />
         )}
       </AnimatePresence>
@@ -436,13 +583,13 @@ export const MenuManagementPage = () => {
 
               <div className="bg-gray-50 rounded-lg p-4 mb-6">
                 <div className="flex items-center gap-3">
-                  <span className="text-3xl">{selectedItem.image}</span>
+                  <span className="text-3xl">{selectedItem.imageUrl || '🍽️'}</span>
                   <div>
                     <p className="font-bold text-gray-900">
                       {selectedItem.name}
                     </p>
                     <p className="text-sm text-gray-600">
-                      {selectedItem.category} • {formatCurrency(selectedItem.price)}
+                      {selectedItem.categoryName} • {formatCurrency(selectedItem.price)}
                     </p>
                   </div>
                 </div>
@@ -454,15 +601,18 @@ export const MenuManagementPage = () => {
                     setShowDeleteModal(false);
                     setSelectedItem(null);
                   }}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteConfirm}
-                  className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
-                  Delete
+                  {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                  {saving ? 'Deleting...' : 'Delete'}
                 </button>
               </div>
             </motion.div>
@@ -524,7 +674,7 @@ export const MenuManagementPage = () => {
             transition={{ delay: index * 0.05 }}
           >
             <div className="flex items-start justify-between mb-4">
-              <div className="text-4xl">{item.image}</div>
+              <div className="text-4xl">{item.imageUrl || '🍽️'}</div>
               <div className="flex gap-2">
                 <button
                   onClick={() => handleEditClick(item)}
@@ -545,11 +695,19 @@ export const MenuManagementPage = () => {
             <h3 className="font-bold text-gray-900 text-lg mb-1">
               {item.name}
             </h3>
-            <p className="text-sm text-gray-600 mb-3">{item.category}</p>
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-xl font-bold text-orange-600">
-                {formatCurrency(item.price)}
-              </p>
+            <p className="text-sm text-gray-600 mb-1">{item.categoryName}</p>
+            {item.description && (
+              <p className="text-xs text-gray-500 mb-3 line-clamp-2">{item.description}</p>
+            )}
+            <div className="flex items-center justify-between mb-3 mt-3">
+              <div className="flex items-center gap-2">
+                <p className="text-xl font-bold text-orange-600">
+                  {formatCurrency(item.price)}
+                </p>
+                <span className={`text-xs px-2 py-0.5 rounded-full ${item.isVeg ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                  {item.isVeg ? '🟢' : '🔴'}
+                </span>
+              </div>
               <button
                 onClick={() => handleToggleAvailability(item)}
                 className={`px-3 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors ${
@@ -562,9 +720,6 @@ export const MenuManagementPage = () => {
                 {item.available ? 'Available' : 'Unavailable'}
               </button>
             </div>
-            <p className="text-xs text-gray-500">
-              Click badge to toggle availability
-            </p>
           </motion.div>
         ))}
       </div>

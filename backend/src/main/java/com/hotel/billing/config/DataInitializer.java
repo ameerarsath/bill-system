@@ -34,6 +34,8 @@ public class DataInitializer implements CommandLineRunner {
                     .username("admin")
                     .password(passwordEncoder.encode("admin123"))
                     .fullName("Administrator")
+                    .email("admin@hotel.com")
+                    .phone("9876543210")
                     .role(Role.ADMIN)
                     .active(true)
                     .build();
@@ -42,6 +44,8 @@ public class DataInitializer implements CommandLineRunner {
                     .username("servant")
                     .password(passwordEncoder.encode("servant123"))
                     .fullName("Waiter One")
+                    .email("servant@hotel.com")
+                    .phone("9876543211")
                     .role(Role.SERVANT)
                     .active(true)
                     .build();
@@ -50,6 +54,8 @@ public class DataInitializer implements CommandLineRunner {
                     .username("kitchen")
                     .password(passwordEncoder.encode("kitchen123"))
                     .fullName("Chef Kumar")
+                    .email("kitchen@hotel.com")
+                    .phone("9876543212")
                     .role(Role.KITCHEN)
                     .active(true)
                     .build();
@@ -58,6 +64,8 @@ public class DataInitializer implements CommandLineRunner {
                     .username("cashier")
                     .password(passwordEncoder.encode("cashier123"))
                     .fullName("Cashier Singh")
+                    .email("cashier@hotel.com")
+                    .phone("9876543213")
                     .role(Role.CASHIER)
                     .active(true)
                     .build();

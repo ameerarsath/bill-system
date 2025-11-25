@@ -1,9 +1,6 @@
 package com.hotel.billing.services;
 
-import com.hotel.billing.dto.AuthResponse;
-import com.hotel.billing.dto.LoginRequest;
-import com.hotel.billing.dto.RegisterRequest;
-import com.hotel.billing.dto.UserDto;
+import com.hotel.billing.dto.*;
 import com.hotel.billing.exception.BadRequestException;
 import com.hotel.billing.models.Role;
 import com.hotel.billing.models.User;
@@ -17,6 +14,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -105,6 +105,95 @@ public class AuthService {
                 .role(user.getRole().name())
                 .active(user.getActive())
                 .createdAt(user.getCreatedAt())
+                .build();
+    }
+
+    @Transactional
+    public MessageResponse changePassword(String username, ChangePasswordRequest request) {
+        // Validate passwords match
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BadRequestException("New password and confirm password do not match");
+        }
+
+        // Get user
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new BadRequestException("User not found"));
+
+        // Verify current password
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new BadRequestException("Current password is incorrect");
+        }
+
+        // Check if new password is same as current
+        if (request.getCurrentPassword().equals(request.getNewPassword())) {
+            throw new BadRequestException("New password must be different from current password");
+        }
+
+        // Update password
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        userRepository.save(user);
+
+        return MessageResponse.builder()
+                .message("Password changed successfully")
+                .build();
+    }
+
+    @Transactional
+    public MessageResponse forgotPassword(ForgotPasswordRequest request) {
+        // Find user by email or username
+        User user = userRepository.findByEmail(request.getEmailOrUsername())
+                .or(() -> userRepository.findByUsername(request.getEmailOrUsername()))
+                .orElse(null);
+
+        // For security, always return success message even if user not found
+        // This prevents email/username enumeration attacks
+        if (user == null) {
+            return MessageResponse.builder()
+                    .message("If an account exists with that email/username, a password reset link has been sent")
+                    .build();
+        }
+
+        // Generate reset token
+        String resetToken = UUID.randomUUID().toString();
+        user.setPasswordResetToken(resetToken);
+        user.setPasswordResetTokenExpiry(LocalDateTime.now().plusHours(24)); // Token valid for 24 hours
+        userRepository.save(user);
+
+        // TODO: Send email with reset link
+        // For now, we'll log the token (in production, this should be sent via email)
+        System.out.println("Password reset token for user " + user.getUsername() + ": " + resetToken);
+        System.out.println("Reset link: http://localhost:5173/reset-password?token=" + resetToken);
+
+        return MessageResponse.builder()
+                .message("If an account exists with that email/username, a password reset link has been sent")
+                .build();
+    }
+
+    @Transactional
+    public MessageResponse resetPassword(ResetPasswordRequest request) {
+        // Validate passwords match
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new BadRequestException("Passwords do not match");
+        }
+
+        // Find user by reset token
+        User user = userRepository.findByPasswordResetToken(request.getToken())
+                .orElseThrow(() -> new BadRequestException("Invalid or expired reset token"));
+
+        // Check if token is expired
+        if (user.getPasswordResetTokenExpiry() == null ||
+            user.getPasswordResetTokenExpiry().isBefore(LocalDateTime.now())) {
+            throw new BadRequestException("Reset token has expired");
+        }
+
+        // Update password and clear reset token
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        user.setPasswordResetToken(null);
+        user.setPasswordResetTokenExpiry(null);
+        userRepository.save(user);
+
+        return MessageResponse.builder()
+                .message("Password reset successfully. You can now login with your new password")
                 .build();
     }
 }

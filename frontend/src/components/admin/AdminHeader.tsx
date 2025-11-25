@@ -1,12 +1,8 @@
-import { calculateStats } from '../../utils/adminHelpers';
-import { mockTenants } from '../../data/mockAdminData';
-
 interface AdminHeaderProps {
   title: string;
 }
 
 export const AdminHeader = ({ title }: AdminHeaderProps) => {
-  const stats = calculateStats(mockTenants);
   const currentDate = new Date().toLocaleDateString('en-US', {
     weekday: 'long',
     year: 'numeric',
@@ -22,22 +18,9 @@ export const AdminHeader = ({ title }: AdminHeaderProps) => {
           <p className="text-sm text-gray-500 mt-1">{currentDate}</p>
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-gray-700">System Online</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-sm">
-            <div className="text-center">
-              <p className="font-bold text-blue-600 text-lg">{stats.total}</p>
-              <p className="text-gray-500 text-xs">Total Tenants</p>
-            </div>
-            <div className="text-center">
-              <p className="font-bold text-green-600 text-lg">{stats.active}</p>
-              <p className="text-gray-500 text-xs">Active</p>
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+          <span className="text-sm font-medium text-gray-700">System Online</span>
         </div>
       </div>
     </header>

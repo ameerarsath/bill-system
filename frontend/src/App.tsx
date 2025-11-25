@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { LoginPage } from './pages/LoginPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { AdminLayout } from './components/admin/AdminLayout';
 import { AdminDashboard } from './pages/admin/AdminDashboard';
 import { TenantsPage } from './pages/admin/TenantsPage';
@@ -14,6 +16,8 @@ import { OrderHistoryPage } from './pages/hotel/OrderHistoryPage';
 import { MenuManagementPage } from './pages/hotel/MenuManagementPage';
 import { StaffManagementPage } from './pages/hotel/StaffManagementPage';
 import { SettingsPage } from './pages/hotel/SettingsPage';
+import { TableManagementPage } from './pages/hotel/TableManagementPage';
+import { CategoryManagementPage } from './pages/hotel/CategoryManagementPage';
 import { WKLayout } from './components/wk/WKLayout';
 import { TakeOrderPage } from './pages/wk/TakeOrderPage';
 import { KitchenPage } from './pages/wk/KitchenPage';
@@ -28,6 +32,8 @@ function App() {
           {/* Public Routes */}
           <Route path="/" element={<LoginPage />} />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/reset-password" element={<ResetPasswordPage />} />
 
           {/* Admin Routes */}
           <Route path="/admin" element={<AdminLayout />}>
@@ -89,6 +95,8 @@ function App() {
             <Route path="live-orders" element={<LiveOrdersPage />} />
             <Route path="order-history" element={<OrderHistoryPage />} />
             <Route path="menu" element={<MenuManagementPage />} />
+            <Route path="tables" element={<TableManagementPage />} />
+            <Route path="categories" element={<CategoryManagementPage />} />
             <Route path="staff" element={<StaffManagementPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

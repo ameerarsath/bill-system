@@ -8,6 +8,11 @@ export const menuApi = {
     return response.data;
   },
 
+  getActiveCategories: async (): Promise<Category[]> => {
+    const response = await apiClient.get<Category[]>('/categories/active');
+    return response.data;
+  },
+
   getCategoryById: async (id: number): Promise<Category> => {
     const response = await apiClient.get<Category>(`/categories/${id}`);
     return response.data;
@@ -25,6 +30,11 @@ export const menuApi = {
 
   deleteCategory: async (id: number): Promise<void> => {
     await apiClient.delete(`/categories/${id}`);
+  },
+
+  toggleCategoryStatus: async (id: number): Promise<Category> => {
+    const response = await apiClient.patch<Category>(`/categories/${id}/toggle`);
+    return response.data;
   },
 
   // Menu Items
@@ -48,6 +58,11 @@ export const menuApi = {
     return response.data;
   },
 
+  getAvailableMenuItemsByCategory: async (categoryId: number): Promise<MenuItem[]> => {
+    const response = await apiClient.get<MenuItem[]>(`/menu/category/${categoryId}/available`);
+    return response.data;
+  },
+
   createMenuItem: async (data: CreateMenuItemRequest): Promise<MenuItem> => {
     const response = await apiClient.post<MenuItem>('/menu', data);
     return response.data;
@@ -60,5 +75,10 @@ export const menuApi = {
 
   deleteMenuItem: async (id: number): Promise<void> => {
     await apiClient.delete(`/menu/${id}`);
+  },
+
+  toggleMenuItemAvailability: async (id: number): Promise<MenuItem> => {
+    const response = await apiClient.patch<MenuItem>(`/menu/${id}/toggle`);
+    return response.data;
   },
 };

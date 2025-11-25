@@ -1,5 +1,6 @@
 import apiClient from './client';
 import type { LoginRequest, AuthResponse, BackendUser, RegisterRequest } from '../types/backend.types';
+import type { ChangePasswordRequest, ForgotPasswordRequest, ResetPasswordRequest, MessageResponse } from '../types/auth.types';
 
 export const authApi = {
   login: async (credentials: LoginRequest): Promise<AuthResponse> => {
@@ -14,6 +15,21 @@ export const authApi = {
 
   getCurrentUser: async (): Promise<BackendUser> => {
     const response = await apiClient.get<BackendUser>('/auth/me');
+    return response.data;
+  },
+
+  changePassword: async (data: ChangePasswordRequest): Promise<MessageResponse> => {
+    const response = await apiClient.post<MessageResponse>('/auth/change-password', data);
+    return response.data;
+  },
+
+  forgotPassword: async (data: ForgotPasswordRequest): Promise<MessageResponse> => {
+    const response = await apiClient.post<MessageResponse>('/auth/forgot-password', data);
+    return response.data;
+  },
+
+  resetPassword: async (data: ResetPasswordRequest): Promise<MessageResponse> => {
+    const response = await apiClient.post<MessageResponse>('/auth/reset-password', data);
     return response.data;
   },
 };

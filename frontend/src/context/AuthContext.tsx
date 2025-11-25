@@ -1,10 +1,11 @@
-import { createContext, useContext, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, type ReactNode } from 'react';
 import { useAuthStore } from '../store/authStore';
 import type { User, LoginCredentials, AuthState } from '../types/auth.types';
 
 interface AuthContextType extends AuthState {
   login: (credentials: LoginCredentials) => Promise<boolean>;
   logout: () => void;
+  isInitialized: boolean; // NEW: Track initialization state
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -12,12 +13,10 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const authStore = useAuthStore();
 
-  // Load user on mount if token exists
+  // Initialize auth state from storage on mount
   useEffect(() => {
-    if (authStore.token && !authStore.user) {
-      authStore.loadUser();
-    }
-  }, []);
+    authStore.initializeAuth();
+  }, [authStore.initializeAuth]);
 
   // Map backend user to frontend User type
   const getMappedUser = (): User | null => {
@@ -58,6 +57,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       value={{
         user: getMappedUser(),
         isAuthenticated: authStore.isAuthenticated,
+        isInitialized: authStore.isInitialized,
         login,
         logout,
       }}

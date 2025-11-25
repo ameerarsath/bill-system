@@ -8,7 +8,7 @@ export interface LoginFormErrors {
   password?: string;
 }
 
-export type UserRole = 'admin' | 'waiter' | 'kitchen';
+export type UserRole = 'admin' | 'waiter' | 'kitchen' | 'cashier';
 
 export interface User {
   id: string;
@@ -21,4 +21,24 @@ export interface User {
 export interface AuthState {
   isAuthenticated: boolean;
   user: User | null;
+}
+
+export interface ChangePasswordRequest {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface ForgotPasswordRequest {
+  emailOrUsername: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
+  newPassword: string;
+  confirmPassword: string;
+}
+
+export interface MessageResponse {
+  message: string;
 }

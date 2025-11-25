@@ -37,6 +37,11 @@ export const billsApi = {
     return response.data;
   },
 
+  updateBill: async (id: number, data: CreateBillRequest): Promise<Bill> => {
+    const response = await apiClient.put<Bill>(`/bills/${id}`, data);
+    return response.data;
+  },
+
   // Public invoice endpoint (no auth required)
   getInvoiceByToken: async (qrToken: string): Promise<Bill> => {
     const response = await apiClient.get<Bill>(`/invoice/${qrToken}`);

@@ -30,4 +30,14 @@ export const tablesApi = {
   deleteTable: async (id: number): Promise<void> => {
     await apiClient.delete(`/tables/${id}`);
   },
+
+  getTablesByStatus: async (status: string): Promise<RestaurantTable[]> => {
+    const response = await apiClient.get<RestaurantTable[]>(`/tables/status/${status}`);
+    return response.data;
+  },
+
+  updateTableStatus: async (id: number, status: string): Promise<RestaurantTable> => {
+    const response = await apiClient.patch<RestaurantTable>(`/tables/${id}/status`, { status });
+    return response.data;
+  },
 };

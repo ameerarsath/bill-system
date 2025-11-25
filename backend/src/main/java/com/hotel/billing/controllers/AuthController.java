@@ -1,9 +1,6 @@
 package com.hotel.billing.controllers;
 
-import com.hotel.billing.dto.AuthResponse;
-import com.hotel.billing.dto.LoginRequest;
-import com.hotel.billing.dto.RegisterRequest;
-import com.hotel.billing.dto.UserDto;
+import com.hotel.billing.dto.*;
 import com.hotel.billing.services.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -37,5 +34,25 @@ public class AuthController {
         String username = authentication.getName();
         UserDto userDto = authService.getCurrentUser(username);
         return ResponseEntity.ok(userDto);
+    }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<MessageResponse> changePassword(@Valid @RequestBody ChangePasswordRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String username = authentication.getName();
+        MessageResponse response = authService.changePassword(username, request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<MessageResponse> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        MessageResponse response = authService.forgotPassword(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<MessageResponse> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        MessageResponse response = authService.resetPassword(request);
+        return ResponseEntity.ok(response);
     }
 }
